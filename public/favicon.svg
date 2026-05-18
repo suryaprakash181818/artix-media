@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .mark {
+      fill: #FFFFFF;
+      transition: fill 0.3s ease;
+    }
+    .dot {
+      fill: #8B5CF6;
+    }
+    @media (prefers-color-scheme: light) {
+      .mark {
+        fill: #0B0B0B;
+      }
+    }
+  </style>
+  <!-- Sleek standalone ARTIX geometric A-mark -->
+  <path class="mark" fill-rule="evenodd" d="M13,3 L24,28 L18,28 L16.4,23 L7.6,23 L6,28 L0,28 Z M13,9 L17,19 L9,19 Z" />
+  <!-- Signature accent-purple dot -->
+  <circle class="dot" cx="28" cy="26" r="2.5" />
+</svg>
