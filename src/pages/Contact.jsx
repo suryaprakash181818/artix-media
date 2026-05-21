@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Loader2, ChevronDown, Clock } from 'lucide-react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { supabase } from '../lib/supabase';
 
 const projectTypeOptions = [
@@ -18,7 +19,11 @@ const budgetOptions = [
   { value: "Custom", label: "Custom Budget" }
 ];
 
-const CustomSelect = ({ name, options, disabled, value, onChange }) => {
+const ALLOWED_PROJECT_TYPES = projectTypeOptions.map(o => o.value);
+const ALLOWED_BUDGETS = budgetOptions.map(o => o.value);
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const CustomSelect = ({ name, options, disabled, value, onChange, error }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef(null);
 
@@ -41,7 +46,9 @@ const CustomSelect = ({ name, options, disabled, value, onChange }) => {
         className={`w-full flex items-center justify-between px-5 py-4 rounded-xl text-base text-white transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         style={{
           background: 'rgba(255,255,255,0.04)',
-          border: isOpen ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.08)',
+          border: error
+            ? '1px solid rgba(239,68,68,0.6)'
+            : isOpen ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.08)',
           boxShadow: isOpen ? '0 0 0 3px rgba(139,92,246,0.08)' : 'none',
         }}
       >
@@ -113,12 +120,43 @@ const Contact = () => {
 
   const [formStatus, setFormStatus] = useState('idle');
   const [honeypot, setHoneypot] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const turnstileRef = useRef(null);
 
   const handleChange = (e) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear error on change
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validate = () => {
+    const errors = {};
+    const name = formData.name.trim();
+    const email = formData.email.trim();
+    const message = formData.message.trim();
+
+    if (!name) errors.name = 'Name is required';
+    else if (name.length > 80) errors.name = 'Name must be under 80 characters';
+    else if (/<[^>]*>/.test(name)) errors.name = 'Name contains invalid characters';
+
+    if (!email) errors.email = 'Valid email required';
+    else if (!EMAIL_REGEX.test(email)) errors.email = 'Valid email required';
+    else if (email.length > 254) errors.email = 'Email is too long';
+
+    if (!formData.projectType || !ALLOWED_PROJECT_TYPES.includes(formData.projectType))
+      errors.projectType = 'Select a project type';
+
+    if (!formData.budget || !ALLOWED_BUDGETS.includes(formData.budget))
+      errors.budget = 'Select a budget range';
+
+    if (!message) errors.message = 'Message is required';
+    else if (message.length > 1000) errors.message = `Message too long (${message.length}/1000)`;
+
+    return errors;
   };
 
   const handleSubmit = async (e) => {
@@ -126,6 +164,19 @@ const Contact = () => {
 
     // Honeypot — silent block
     if (honeypot) return;
+
+    // Turnstile check
+    if (!turnstileToken) {
+      setFieldErrors(prev => ({ ...prev, turnstile: 'Please complete the verification' }));
+      return;
+    }
+
+    // Validation
+    const errors = validate();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
 
     // Cooldown check
     const lastSubmit = localStorage.getItem('artix_last_submit');
@@ -135,25 +186,26 @@ const Contact = () => {
     }
 
     setFormStatus('loading');
+    setFieldErrors({});
 
     try {
       const { error } = await supabase
         .from('leads')
         .insert([{
-          name: formData.name,
-          email: formData.email,
+          name: formData.name.trim(),
+          email: formData.email.trim(),
           project_type: formData.projectType,
           budget: formData.budget,
-          message: formData.message,
-          status: 'new'
+          message: formData.message.trim(),
+          status: 'new',
+          cf_turnstile_response: turnstileToken
         }]);
 
       if (error) throw error;
 
-      // Store cooldown timestamp
       localStorage.setItem('artix_last_submit', Date.now().toString());
-
       setFormStatus('success');
+      setTurnstileToken('');
 
       // Reset form
       setFormData({
@@ -163,6 +215,11 @@ const Contact = () => {
         budget: '15k-30k',
         message: ''
       });
+
+      // Reset Turnstile widget
+      if (turnstileRef.current) {
+        turnstileRef.current.reset();
+      }
 
     } catch (err) {
       setFormStatus('error');
@@ -206,6 +263,7 @@ const Contact = () => {
             <div className="absolute inset-0 bg-gradient-to-br from-accent/[0.03] to-transparent pointer-events-none" />
             <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
               
+              {/* Honeypot */}
               <input
                 type="text"
                 name="website"
@@ -222,39 +280,88 @@ const Contact = () => {
                 aria-hidden="true"
               />
 
+              {/* Name + Email */}
               <div className="grid grid-cols-1 tablet:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-secondaryText/80 tracking-[0.2em] uppercase block">Name</label>
-                  <input type="text" name="name" required disabled={isDisabled} value={formData.name} onChange={handleChange}
-                    className="w-full bg-deep border border-white/[0.04] rounded-xl px-5 py-4 text-white text-base focus:outline-none focus:border-accent focus:bg-accentSoft transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  <input type="text" name="name" disabled={isDisabled} value={formData.name} onChange={handleChange}
+                    className="w-full bg-deep border rounded-xl px-5 py-4 text-white text-base focus:outline-none focus:border-accent focus:bg-accentSoft transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ borderColor: fieldErrors.name ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.04)' }}
                     placeholder="John Doe" />
+                  {fieldErrors.name && (
+                    <p className="text-xs text-red-400 mt-1">{fieldErrors.name}</p>
+                  )}
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-secondaryText/80 tracking-[0.2em] uppercase block">Email</label>
-                  <input type="email" name="email" required disabled={isDisabled} value={formData.email} onChange={handleChange}
-                    className="w-full bg-deep border border-white/[0.04] rounded-xl px-5 py-4 text-white text-base focus:outline-none focus:border-accent focus:bg-accentSoft transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  <input type="text" name="email" disabled={isDisabled} value={formData.email} onChange={handleChange}
+                    className="w-full bg-deep border rounded-xl px-5 py-4 text-white text-base focus:outline-none focus:border-accent focus:bg-accentSoft transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ borderColor: fieldErrors.email ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.04)' }}
                     placeholder="john@example.com" />
+                  {fieldErrors.email && (
+                    <p className="text-xs text-red-400 mt-1">{fieldErrors.email}</p>
+                  )}
                 </div>
               </div>
               
+              {/* Project Type + Budget */}
               <div className="grid grid-cols-1 tablet:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-secondaryText/80 tracking-[0.2em] uppercase block">Project Type</label>
-                  <CustomSelect name="projectType" options={projectTypeOptions} disabled={isDisabled} value={formData.projectType} onChange={handleChange} />
+                  <CustomSelect name="projectType" options={projectTypeOptions} disabled={isDisabled} value={formData.projectType} onChange={handleChange} error={fieldErrors.projectType} />
+                  {fieldErrors.projectType && (
+                    <p className="text-xs text-red-400 mt-1">{fieldErrors.projectType}</p>
+                  )}
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-secondaryText/80 tracking-[0.2em] uppercase block">Estimated Budget</label>
-                  <CustomSelect name="budget" options={budgetOptions} disabled={isDisabled} value={formData.budget} onChange={handleChange} />
+                  <CustomSelect name="budget" options={budgetOptions} disabled={isDisabled} value={formData.budget} onChange={handleChange} error={fieldErrors.budget} />
+                  {fieldErrors.budget && (
+                    <p className="text-xs text-red-400 mt-1">{fieldErrors.budget}</p>
+                  )}
                 </div>
               </div>
 
+              {/* Message */}
               <div className="space-y-3">
-                <label className="text-[10px] font-bold text-secondaryText/80 tracking-[0.2em] uppercase block">Message</label>
-                <textarea name="message" required rows={5} disabled={isDisabled} value={formData.message} onChange={handleChange}
-                  className="w-full bg-deep border border-white/[0.04] rounded-xl px-5 py-4 text-white text-base focus:outline-none focus:border-accent focus:bg-accentSoft transition-all duration-300 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  placeholder="Describe the story, audience, or emotional momentum you want the edit to create."></textarea>
+                <label className="text-[10px] font-bold text-secondaryText/80 tracking-[0.2em] uppercase block">
+                  Message
+                  {formData.message.length > 800 && (
+                    <span className={`ml-2 font-normal normal-case tracking-normal ${formData.message.length > 1000 ? 'text-red-400' : 'text-yellow-400/70'}`}>
+                      {formData.message.length}/1000
+                    </span>
+                  )}
+                </label>
+                <textarea name="message" rows={5} disabled={isDisabled} value={formData.message} onChange={handleChange}
+                  className="w-full bg-deep border rounded-xl px-5 py-4 text-white text-base focus:outline-none focus:border-accent focus:bg-accentSoft transition-all duration-300 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ borderColor: fieldErrors.message ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.04)' }}
+                  placeholder="Describe the story, audience, or emotional momentum you want the edit to create." />
+                {fieldErrors.message && (
+                  <p className="text-xs text-red-400 mt-1">{fieldErrors.message}</p>
+                )}
               </div>
 
+              {/* Cloudflare Turnstile */}
+              {import.meta.env.VITE_TURNSTILE_SITE_KEY && (
+                <div className="flex flex-col items-start gap-2">
+                  <Turnstile
+                    ref={turnstileRef}
+                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                    onSuccess={(token) => {
+                      setTurnstileToken(token);
+                      setFieldErrors(prev => ({ ...prev, turnstile: '' }));
+                    }}
+                    onExpire={() => setTurnstileToken('')}
+                    onError={() => setTurnstileToken('')}
+                    options={{ theme: 'dark', size: 'normal' }}
+                  />
+                  {fieldErrors.turnstile && (
+                    <p className="text-xs text-red-400">{fieldErrors.turnstile}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Submit Button */}
               <motion.button 
                 type="submit" 
                 whileHover={!isDisabled ? { scale: 1.02, filter: "brightness(1.05)", boxShadow: "0 0 25px rgba(139, 92, 246, 0.2)" } : {}}
@@ -291,6 +398,7 @@ const Contact = () => {
                 </AnimatePresence>
               </motion.button>
               
+              {/* Status Messages */}
               <div className="mt-6 h-6 relative flex justify-center items-center">
                 <AnimatePresence mode="wait">
                   {formStatus === "success" && (
@@ -302,7 +410,7 @@ const Contact = () => {
                       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                       className="text-xs text-secondaryText/50 font-light tracking-wide absolute text-center w-full"
                     >
-                      We’ll review the details and respond if the project aligns with our workflow.
+                      We'll review the details and respond if the project aligns with our workflow.
                     </motion.p>
                   )}
                   {formStatus === "error" && (
