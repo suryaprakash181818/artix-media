@@ -166,6 +166,8 @@ const Contact = () => {
     // Honeypot — silent block
     if (honeypot) return;
 
+    console.log("Current token:", turnstileToken);
+
     // Turnstile check
     if (!turnstileToken) {
       setFieldErrors(prev => ({ ...prev, turnstile: 'Please complete the verification' }));
@@ -396,14 +398,22 @@ const Contact = () => {
               {import.meta.env.VITE_TURNSTILE_SITE_KEY && (
                 <div className="flex flex-col items-start gap-2">
                   <Turnstile
+                    key="stable-turnstile"
                     ref={turnstileRef}
                     siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
                     onSuccess={(token) => {
+                      console.log("Turnstile success:", token);
                       setTurnstileToken(token);
                       setFieldErrors(prev => ({ ...prev, turnstile: '' }));
                     }}
-                    onExpire={() => setTurnstileToken('')}
-                    onError={() => setTurnstileToken('')}
+                    onExpire={() => {
+                      console.log("Turnstile expired");
+                      setTurnstileToken('');
+                    }}
+                    onError={() => {
+                      console.log("Turnstile error");
+                      setTurnstileToken('');
+                    }}
                     options={{ theme: 'dark', size: 'normal' }}
                   />
                   {fieldErrors.turnstile && (

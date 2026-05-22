@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const WhatsAppButton = () => {
+const WhatsAppButton = ({ isContactPage }) => {
   const [hovered, setHovered] = useState(false)
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center justify-end">
+    <div className={`fixed bottom-6 right-6 z-50 flex items-center justify-end ${isContactPage ? 'hidden tablet:flex' : ''}`}>
       <AnimatePresence>
         {hovered && (
           <motion.span

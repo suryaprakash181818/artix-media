@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 
 const CATEGORIES = ['Website Experience', 'Editing Service', 'Communication', 'Pricing', 'Other'];
 
-const FeedbackWidget = () => {
+const FeedbackWidget = ({ isContactPage }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [hoveredStar, setHoveredStar] = useState(null);
@@ -59,7 +59,7 @@ const FeedbackWidget = () => {
   return (
     <>
       {/* Feedback FAB */}
-      <div className="fixed bottom-24 right-6 z-50 flex items-center justify-end">
+      <div className={`fixed bottom-24 right-6 z-50 flex items-center justify-end ${isContactPage ? 'hidden tablet:flex' : ''}`}>
         <AnimatePresence>
           {hovered && !isOpen && (
             <motion.span

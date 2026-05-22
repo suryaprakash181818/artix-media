@@ -6,6 +6,7 @@ import FeedbackWidget from '../FeedbackWidget';
 
 const MainLayout = () => {
   const location = useLocation();
+  const isContactPage = location.pathname === '/contact';
 
   return (
     <>
@@ -15,8 +16,8 @@ const MainLayout = () => {
           <Outlet />
         </div>
       </main>
-      <FeedbackWidget />
-      <WhatsAppButton />
+      <FeedbackWidget isContactPage={isContactPage} />
+      <WhatsAppButton isContactPage={isContactPage} />
       <Footer />
     </>
   );
