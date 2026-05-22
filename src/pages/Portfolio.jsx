@@ -137,7 +137,7 @@ const portfolioData = [
 const Portfolio = () => {
   const [activeCategory, setActiveCategory] = useState("All");
   const [isMobile, setIsMobile] = useState(false);
-  
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -162,26 +162,26 @@ const Portfolio = () => {
   const fullscreenContainerRef = useRef(null);
   const previewTimeoutsRef = useRef({});
 
-  const filteredProjects = activeCategory === "All" 
-    ? portfolioData 
+  const filteredProjects = activeCategory === "All"
+    ? portfolioData
     : portfolioData.filter(p => p.category === activeCategory);
 
   const handleMouseEnter = (projectId) => {
     if (window.matchMedia("(max-width: 768px)").matches) return;
-    
+
     if (previewTimeoutsRef.current[projectId]) {
       clearTimeout(previewTimeoutsRef.current[projectId]);
       previewTimeoutsRef.current[projectId] = null;
     }
-    
+
     const video = videoRefs[projectId];
     const project = portfolioData.find(p => p.id === projectId);
-    
+
     if (video && project) {
       setFadingVideos(prev => ({ ...prev, [projectId]: false }));
       video.playbackRate = 1.0;
       video.currentTime = project.previewStart || 0.1;
-      video.play().catch(() => {});
+      video.play().catch(() => { });
     }
   };
 
@@ -189,11 +189,11 @@ const Portfolio = () => {
     if (window.matchMedia("(max-width: 768px)").matches) return;
     const video = videoRefs[projectId];
     const project = portfolioData.find(p => p.id === projectId);
-    
+
     if (video && project) {
       setFadingVideos(prev => ({ ...prev, [projectId]: true }));
       video.playbackRate = 0.5; // cinematic slowdown
-      
+
       const timeoutId = setTimeout(() => {
         if (video) {
           video.pause();
@@ -202,7 +202,7 @@ const Portfolio = () => {
           setFadingVideos(prev => ({ ...prev, [projectId]: false }));
         }
       }, 700);
-      
+
       previewTimeoutsRef.current[projectId] = timeoutId;
     }
   };
@@ -210,7 +210,7 @@ const Portfolio = () => {
   const handleModalPlay = () => {
     const video = modalVideoRef.current;
     if (video) {
-      video.play().catch(() => {});
+      video.play().catch(() => { });
       setModalVideoPlaying(true);
     }
   };
@@ -240,7 +240,7 @@ const Portfolio = () => {
       clearInterval(progressIntervalRef.current);
     }
     if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
     }
   };
 
@@ -265,7 +265,7 @@ const Portfolio = () => {
       const willMute = !video.muted;
       video.muted = willMute;
       setIsMuted(willMute);
-      
+
       if (!willMute) {
         video.volume = 1.0;
         const playPromise = video.play();
@@ -283,10 +283,10 @@ const Portfolio = () => {
   const handleFullscreenToggle = useCallback(() => {
     const videoContainer = document.querySelector('.video-player-wrapper');
     if (!document.fullscreenElement && videoContainer) {
-      videoContainer.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+      videoContainer.requestFullscreen({ navigationUI: 'hide' }).catch(() => { });
       setIsFullscreen(true);
     } else if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
       setIsFullscreen(false);
     }
   }, []);
@@ -368,7 +368,7 @@ const Portfolio = () => {
     } else if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
     }
-    
+
     return () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
@@ -388,14 +388,14 @@ const Portfolio = () => {
   useEffect(() => {
     const handleMouseMove = (e) => handleSeekBarMouseMove(e);
     const handleMouseUpGlobal = () => handleMouseUp();
-    
+
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUpGlobal);
       document.addEventListener('touchmove', handleMouseMove, { passive: false });
       document.addEventListener('touchend', handleMouseUpGlobal);
     }
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUpGlobal);
@@ -473,11 +473,10 @@ const Portfolio = () => {
         </motion.div>
 
         {/* Grid */}
-        <motion.div layout className={`grid mb-16 ${
-          filteredProjects.length === 1 ? 'grid-cols-1 max-w-md mx-auto gap-10' :
+        <motion.div layout className={`grid mb-16 ${filteredProjects.length === 1 ? 'grid-cols-1 max-w-md mx-auto gap-10' :
           filteredProjects.length === 2 ? 'grid-cols-1 tablet:grid-cols-2 max-w-5xl mx-auto gap-12 tablet:gap-16' :
-          'grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-6 tablet:gap-10'
-        }`}>
+            'grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-6 tablet:gap-10'
+          }`}>
           <AnimatePresence>
             {filteredProjects.map((project, i) => (
               <motion.div
@@ -649,7 +648,7 @@ const Portfolio = () => {
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="ag-mobile-overlay" style={{ zIndex: 40 }}>
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(0,0,14,0.96) 0%,rgba(4,3,20,0.45) 50%,transparent 100%)', pointerEvents: 'none' }} />
                     <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100%', padding: '1.5rem', paddingBottom: 'max(2rem,calc(env(safe-area-inset-bottom)+1rem))', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-                      
+
                       {!modalVideoPlaying && (
                         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} transition={{ duration: 0.3, delay: 0.08 }} style={{ pointerEvents: 'auto', marginTop: 'auto', marginBottom: '1.5rem', maxHeight: '45vh', overflowY: 'auto' }} className="ag-scrollbar">
                           <p className="ag-modal-eyebrow">{selectedProject.category}</p>

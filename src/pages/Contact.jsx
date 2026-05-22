@@ -122,6 +122,7 @@ const Contact = () => {
   const [honeypot, setHoneypot] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+  const [errorMessage, setErrorMessage] = useState('');
   const turnstileRef = useRef(null);
 
   const handleChange = (e) => {
@@ -187,9 +188,12 @@ const Contact = () => {
 
     setFormStatus('loading');
     setFieldErrors({});
+    setErrorMessage('');
 
     try {
-      const { error } = await supabase
+      // 1. Insert lead details into leads table without the cf_turnstile_response column,
+      // as it's missing/uncached in the Supabase schema and causes insert failures.
+      const { error: dbError } = await supabase
         .from('leads')
         .insert([{
           name: formData.name.trim(),
@@ -197,11 +201,56 @@ const Contact = () => {
           project_type: formData.projectType,
           budget: formData.budget,
           message: formData.message.trim(),
-          status: 'new',
-          cf_turnstile_response: turnstileToken
+          status: 'new'
         }]);
 
-      if (error) throw error;
+      if (dbError) throw dbError;
+
+      // 2. Invoke the Edge Function via the production endpoint to process notifications and verify turnstile token
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://jhrmrtsenlrehzmblxrz.supabase.co";
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impocm1ydHNlbmxyZWh6bWJseHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODQyMjYsImV4cCI6MjA5NDY2MDIyNn0.ipEtzukIce2MX-Zj1M3q8iJJVFGV3ZUvSQXUgRd1gDw";
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/notify-lead`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseAnonKey}`
+        },
+        body: JSON.stringify({
+          type: "lead",
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          project_type: formData.projectType,
+          budget: formData.budget,
+          message: formData.message.trim(),
+          cf_turnstile_response: turnstileToken
+        })
+      });
+
+      // Temporary debug logging as requested
+      console.log(turnstileToken);
+      console.log(formData);
+      console.log(response);
+
+      const responseTextClone = response.clone();
+      const responseJsonClone = response.clone();
+
+      try {
+        console.log(await responseTextClone.text());
+      } catch (err) {
+        console.log("Error logging response text:", err);
+      }
+
+      try {
+        console.log(await responseJsonClone.json());
+      } catch (err) {
+        console.log("Error logging response json:", err);
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Edge function returned status ${response.status}: ${errorText}`);
+      }
 
       localStorage.setItem('artix_last_submit', Date.now().toString());
       setFormStatus('success');
@@ -222,6 +271,8 @@ const Contact = () => {
       }
 
     } catch (err) {
+      console.error("Submission flow error:", err);
+      setErrorMessage(err.message || String(err));
       setFormStatus('error');
     }
   };
@@ -419,9 +470,9 @@ const Contact = () => {
                       initial={{ opacity: 0, y: -8 }} 
                       animate={{ opacity: 1, y: 0 }} 
                       exit={{ opacity: 0 }}
-                      className="text-sm text-red-400 text-center absolute w-full mt-3"
+                      className="text-sm text-red-400 text-center absolute w-full mt-3 px-4"
                     >
-                      Something went wrong. Please try again or email us directly.
+                      {errorMessage || "Something went wrong. Please try again or email us directly."}
                     </motion.p>
                   )}
                   {formStatus === "cooldown" && (
