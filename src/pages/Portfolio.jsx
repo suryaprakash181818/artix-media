@@ -590,7 +590,7 @@ const Portfolio = () => {
                   <AnimatePresence>
                     {!modalVideoPlaying && (
                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }} onClick={handleModalPlay}>
-                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.93 }} style={{ width: 80, height: 80, borderRadius: '50%', border: '1px solid rgba(139,92,246,0.4)', background: 'rgba(20,10,55,0.55)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 30px rgba(100,60,200,0.3)' }}>
+                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.93 }} style={{ y: -40, width: 80, height: 80, borderRadius: '50%', border: '1px solid rgba(139,92,246,0.4)', background: 'rgba(20,10,55,0.55)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 30px rgba(100,60,200,0.3)' }}>
                           <Play style={{ width: 32, height: 32, color: '#fff', marginLeft: 3, fill: 'rgba(255,255,255,0.2)' }} />
                         </motion.div>
                       </motion.div>
