@@ -130,9 +130,44 @@ const Contact = () => {
   const [formStatus, setFormStatus] = useState('idle');
   const [honeypot, setHoneypot] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState(false);
+  const [turnstileKey, setTurnstileKey] = useState(0);
   const [fieldErrors, setFieldErrors] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
   const turnstileRef = useRef(null);
+
+  useEffect(() => {
+    let unlocked = false;
+    const unlockTurnstile = () => {
+      if (unlocked) return;
+      unlocked = true;
+      if (!turnstileToken && turnstileRef.current) {
+        if (import.meta.env.DEV) {
+          console.log("[Turnstile] User interaction detected, resetting widget to ensure freshness");
+        }
+        try {
+          turnstileRef.current.reset();
+        } catch (e) {
+          if (import.meta.env.DEV) {
+            console.error("Error resetting Turnstile on interaction:", e);
+          }
+        }
+      }
+      cleanup();
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('touchstart', unlockTurnstile);
+      window.removeEventListener('mousedown', unlockTurnstile);
+      window.removeEventListener('keydown', unlockTurnstile);
+    };
+
+    window.addEventListener('touchstart', unlockTurnstile, { passive: true });
+    window.addEventListener('mousedown', unlockTurnstile, { passive: true });
+    window.addEventListener('keydown', unlockTurnstile, { passive: true });
+
+    return cleanup;
+  }, [turnstileToken]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -256,24 +291,26 @@ const Contact = () => {
         })
       });
 
-      // Temporary debug logging as requested
-      console.log(turnstileToken);
-      console.log(formData);
-      console.log(response);
+      // Temporary debug logging as requested (only in dev mode)
+      if (import.meta.env.DEV) {
+        console.log(turnstileToken);
+        console.log(formData);
+        console.log(response);
 
-      const responseTextClone = response.clone();
-      const responseJsonClone = response.clone();
+        const responseTextClone = response.clone();
+        const responseJsonClone = response.clone();
 
-      try {
-        console.log(await responseTextClone.text());
-      } catch (err) {
-        console.log("Error logging response text:", err);
-      }
+        try {
+          console.log(await responseTextClone.text());
+        } catch (err) {
+          console.log("Error logging response text:", err);
+        }
 
-      try {
-        console.log(await responseJsonClone.json());
-      } catch (err) {
-        console.log("Error logging response json:", err);
+        try {
+          console.log(await responseJsonClone.json());
+        } catch (err) {
+          console.log("Error logging response json:", err);
+        }
       }
 
       if (!response.ok) {
@@ -298,13 +335,33 @@ const Contact = () => {
 
       // Reset Turnstile widget
       if (turnstileRef.current) {
-        turnstileRef.current.reset();
+        try {
+          turnstileRef.current.reset();
+        } catch (e) {
+          if (import.meta.env.DEV) {
+            console.error("Failed to reset Turnstile on success:", e);
+          }
+        }
       }
 
     } catch (err) {
-      console.error("Submission flow error:", err);
+      if (import.meta.env.DEV) {
+        console.error("Submission flow error:", err);
+      }
       setErrorMessage(err.message || String(err));
       setFormStatus('error');
+      
+      // Clear token and reset/regenerate widget after failure
+      setTurnstileToken('');
+      if (turnstileRef.current) {
+        try {
+          turnstileRef.current.reset();
+        } catch (e) {
+          if (import.meta.env.DEV) {
+            console.error("Failed to reset Turnstile on submit catch:", e);
+          }
+        }
+      }
     }
   };
 
@@ -456,26 +513,81 @@ const Contact = () => {
                   {import.meta.env.VITE_TURNSTILE_SITE_KEY && (
                     <div className="flex flex-col items-start gap-2">
                       <Turnstile
-                        key="stable-turnstile"
+                        key={`turnstile-${turnstileKey}`}
                         ref={turnstileRef}
                         siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
                         onSuccess={(token) => {
-                          console.log("Turnstile success:", token);
+                          if (import.meta.env.DEV) {
+                            console.log("[Turnstile] Success:", token);
+                          }
                           setTurnstileToken(token);
+                          setTurnstileError(false);
                           setFieldErrors(prev => ({ ...prev, turnstile: '' }));
                         }}
                         onExpire={() => {
-                          console.log("Turnstile expired");
+                          if (import.meta.env.DEV) {
+                            console.log("[Turnstile] Expired");
+                          }
                           setTurnstileToken('');
                         }}
-                        onError={() => {
-                          console.log("Turnstile error");
+                        onError={(err) => {
+                          if (import.meta.env.DEV) {
+                            console.error("[Turnstile] Error:", err);
+                          }
                           setTurnstileToken('');
+                          setTurnstileError(true);
+                          if (turnstileRef.current) {
+                            try {
+                              turnstileRef.current.reset();
+                            } catch (e) {
+                              if (import.meta.env.DEV) {
+                                console.error("[Turnstile] Error resetting widget:", e);
+                              }
+                            }
+                          }
                         }}
-                        options={{ theme: 'dark', size: 'normal' }}
+                        onTimeout={() => {
+                          if (import.meta.env.DEV) {
+                            console.log("[Turnstile] Timeout");
+                          }
+                          setTurnstileToken('');
+                          setTurnstileError(true);
+                          if (turnstileRef.current) {
+                            try {
+                              turnstileRef.current.reset();
+                            } catch (e) {
+                              if (import.meta.env.DEV) {
+                                console.error("[Turnstile] Error resetting widget:", e);
+                              }
+                            }
+                          }
+                        }}
+                        options={{
+                          theme: 'dark',
+                          size: 'normal',
+                          retry: 'auto',
+                          refreshExpired: 'auto',
+                          refreshTimeout: 'auto'
+                        }}
                       />
                       {fieldErrors.turnstile && (
                         <p className="text-xs text-red-400">{fieldErrors.turnstile}</p>
+                      )}
+                      {turnstileError && (
+                        <p className="text-xs text-yellow-500/70 mt-1 font-light">
+                          Verification issue?{' '}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTurnstileKey(prev => prev + 1);
+                              setTurnstileError(false);
+                              setTurnstileToken('');
+                            }}
+                            className="underline text-accent hover:text-accent/80 transition-colors focus:outline-none"
+                          >
+                            Tap here to retry
+                          </button>
+                        </p>
                       )}
                     </div>
                   )}
