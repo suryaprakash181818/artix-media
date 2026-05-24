@@ -213,10 +213,13 @@ const Contact = () => {
     setErrorMessage('');
 
     try {
-      // 1. Insert lead details into leads table with selection of ID
-      const { data: insertedData, error: dbError } = await supabase
+      const leadId = crypto.randomUUID();
+
+      // 1. Insert lead details into leads table
+      const { error: dbError } = await supabase
         .from('leads')
         .insert([{
+          id: leadId,
           name: formData.name.trim(),
           email: formData.email.trim(),
           phone: formData.phone.trim(),
@@ -225,9 +228,7 @@ const Contact = () => {
           budget: formData.budget,
           message: formData.message.trim(),
           status: 'pending'
-        }])
-        .select()
-        .single();
+        }]);
 
       if (dbError) throw dbError;
 
@@ -243,7 +244,7 @@ const Contact = () => {
         },
         body: JSON.stringify({
           type: "lead",
-          id: insertedData?.id,
+          id: leadId,
           name: formData.name.trim(),
           email: formData.email.trim(),
           phone: formData.phone.trim(),
