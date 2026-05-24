@@ -259,23 +259,28 @@ const Portfolio = () => {
     }
   };
 
-  const handleMuteToggle = () => {
+  const handleMuteToggle = async () => {
     const video = modalVideoRef.current;
     if (video) {
-      const willMute = !video.muted;
-      video.muted = willMute;
-      setIsMuted(willMute);
-
-      if (!willMute) {
+      if (isMuted) {
+        // Unmute
+        video.muted = false;
         video.volume = 1.0;
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            setModalVideoPlaying(true);
-          }).catch(error => {
-            console.log("Audio unmute playback call was blocked:", error);
-          });
+        console.log("Muted:", video.muted);
+        console.log("Volume:", video.volume);
+        try {
+          await video.play();
+          setIsMuted(false);
+          setModalVideoPlaying(true);
+        } catch (error) {
+          console.log("Audio unmute playback call was blocked:", error);
         }
+      } else {
+        // Mute
+        video.muted = true;
+        console.log("Muted:", video.muted);
+        console.log("Volume:", video.volume);
+        setIsMuted(true);
       }
     }
   };
