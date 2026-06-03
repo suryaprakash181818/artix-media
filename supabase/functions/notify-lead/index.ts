@@ -419,14 +419,18 @@ serve(async (req: Request) => {
           const contactedUrl = `${supabaseUrl}/functions/v1/notify-lead?action=contacted&lead_id=${record.id || ''}&token=${statusSecret}`;
 
           embedFields = [
-            { name: "👤 Client Details", value: `**Name:** ${record.name || "N/A"}\n**Email:** ${record.email || "N/A"}\n**Phone:** ${record.phone || "N/A"}`, inline: false },
-            { name: "🎬 Project Specs", value: `**Type:** ${record.project_type || "N/A"}\n**Budget:** ${record.budget || "N/A"}\n**Preferred Contact:** ${record.preferred_contact || "N/A"}`, inline: false },
+            { name: "👤 Client Name", value: record.name || "N/A", inline: true },
+            { name: "✉️ Email Address", value: record.email || "N/A", inline: true },
+            { name: "📞 Phone Number", value: record.phone || "N/A", inline: true },
+            { name: "🎬 Project Type", value: record.project_type || "N/A", inline: true },
+            { name: "💰 Budget Range", value: record.budget || "N/A", inline: true },
+            { name: "⚡ Preferred Contact", value: record.preferred_contact || "N/A", inline: true },
             { name: "💬 Message", value: record.message || "No message", inline: false }
           ];
 
           if (record.id) {
             embedFields.push({
-              name: "⚡ Quick Actions (Manual Review)",
+              name: "🛠️ Quick Actions",
               value: `[🟢 Accept Lead](${acceptUrl})  |  [🔴 Decline Lead](${declineUrl})  |  [🟡 Mark Contacted](${contactedUrl})`,
               inline: false
             });
@@ -503,8 +507,8 @@ serve(async (req: Request) => {
 
           // 2. Client Auto-Acknowledgement Email
           if (record.email) {
-            const clientSubject = "ARTIX — Inquiry Received";
-            const clientHtml = getAcknowledgementEmailHtml(record.name || "there");
+            const clientSubject = "ARTIX MEDIA — Inquiry Received";
+            const clientHtml = getAcknowledgementEmailHtml(record);
 
             const clientEmailRes = await fetch("https://api.resend.com/emails", {
               method: "POST",
@@ -604,13 +608,19 @@ serve(async (req: Request) => {
 // HTML EMAIL & CONFIRMATION TEMPLATES
 // ============================================================
 
-function getAcknowledgementEmailHtml(clientName: string): string {
+function getAcknowledgementEmailHtml(record: any): string {
+  const clientName = record.name || "Client";
+  const projectType = record.project_type || "N/A";
+  const budgetRange = record.budget || "N/A";
+  const preferredContact = record.preferred_contact || "N/A";
+
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ARTIX MEDIA — Inquiry Received</title>
 </head>
 <body style="margin:0;padding:0;background-color:#080808;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#080808" style="background-color:#080808;padding:40px 16px;">
@@ -633,35 +643,100 @@ function getAcknowledgementEmailHtml(clientName: string): string {
           </td>
         </tr>
 
-        <!-- Main Narrative Card -->
+        <!-- 1. Thank You Section -->
         <tr>
-          <td style="padding-bottom:32px;">
+          <td style="padding-bottom:24px;">
             <p style="font-size:10px;font-weight:700;color:#8B5CF6;text-transform:uppercase;letter-spacing:3px;margin:0 0 12px 0;">Inquiry Confirmed</p>
-            <h1 style="font-size:32px;font-weight:700;color:#ffffff;margin:0 0 20px 0;letter-spacing:-1px;">Hello ${clientName},</h1>
-            <p style="font-size:15px;color:#999999;line-height:1.7;margin:0 0 16px 0;font-weight:300;">
-              We have received your project details and creative brief.
-            </p>
+            <h1 style="font-size:28px;font-weight:700;color:#ffffff;margin:0 0 20px 0;letter-spacing:-1px;">Inquiry Received</h1>
             <p style="font-size:15px;color:#999999;line-height:1.7;margin:0 0 24px 0;font-weight:300;">
-              Every film, commercial, or digital narrative we shape requires complete focus. To preserve our quality of execution, we limit our client intake. Our team is currently reviewing your submission to verify creative alignment and queue availability.
-            </p>
-            <p style="font-size:15px;color:#999999;line-height:1.7;margin:0 0 24px 0;font-weight:300;">
-              We typically finalize reviews within 24 to 48 hours. If your project is a fit, we will reach out to organize a creative alignment call.
+              Hello ${clientName},<br><br>
+              Thank you for reaching out to ARTIX MEDIA. Your inquiry has been successfully submitted and is now under review. We appreciate the opportunity to explore your vision.
             </p>
           </td>
         </tr>
 
-        <!-- CTA Box -->
+        <!-- Project Details Block -->
+        <tr>
+          <td style="padding-bottom:32px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid rgba(255,255,255,0.06);border-radius:12px;background-color:#0f0f12;border-collapse:separate;overflow:hidden;">
+              <tr>
+                <td style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td width="40%" style="font-size:12px;font-weight:600;color:#555555;text-transform:uppercase;letter-spacing:1.5px;">Client Name</td>
+                      <td width="60%" style="font-size:14px;color:#ffffff;font-weight:500;">${clientName}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td width="40%" style="font-size:12px;font-weight:600;color:#555555;text-transform:uppercase;letter-spacing:1.5px;">Project Type</td>
+                      <td width="60%" style="font-size:14px;color:#ffffff;font-weight:500;">${projectType}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td width="40%" style="font-size:12px;font-weight:600;color:#555555;text-transform:uppercase;letter-spacing:1.5px;">Budget Range</td>
+                      <td width="60%" style="font-size:14px;color:#ffffff;font-weight:500;">${budgetRange}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:16px 20px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td width="40%" style="font-size:12px;font-weight:600;color:#555555;text-transform:uppercase;letter-spacing:1.5px;">Preferred Contact</td>
+                      <td width="60%" style="font-size:14px;color:#ffffff;font-weight:500;">${preferredContact}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- 2. What Happens Next Section -->
+        <tr>
+          <td style="padding-bottom:32px;">
+            <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;letter-spacing:-0.5px;">What Happens Next</h2>
+            <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#999999;line-height:1.6;font-weight:300;">
+              <tr>
+                <td valign="top" style="padding-bottom:12px;padding-right:12px;color:#8B5CF6;font-weight:bold;">01.</td>
+                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">Review inquiry:</strong> We check your project details and requirements against our current capacity and creative alignment.</td>
+              </tr>
+              <tr>
+                <td valign="top" style="padding-bottom:12px;padding-right:12px;color:#8B5CF6;font-weight:bold;">02.</td>
+                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">Evaluate requirements:</strong> Our team reviews your specific answers, message content, and reference styles.</td>
+              </tr>
+              <tr>
+                <td valign="top" style="padding-bottom:12px;padding-right:12px;color:#8B5CF6;font-weight:bold;">03.</td>
+                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">Contact within 24 hours:</strong> We will reach out to you via your preferred contact method to discuss details.</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- 3. Faster Communication Section -->
         <tr>
           <td style="padding-bottom:36px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#120b24;border:1px solid #2a1f4a;border-radius:16px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#120b24;border:1px solid #2a1f4a;border-radius:16px;border-collapse:separate;overflow:hidden;">
               <tr>
                 <td style="padding:28px 24px;text-align:center;">
-                  <p style="margin:0 0 16px 0;font-size:14px;color:#ffffff;font-weight:400;letter-spacing:-0.2px;">Have reference videos or additional project materials to share?</p>
+                  <h3 style="margin:0 0 8px 0;font-size:16px;color:#ffffff;font-weight:600;letter-spacing:-0.2px;">Want to connect faster?</h3>
+                  <p style="margin:0 0 20px 0;font-size:14px;color:#999999;font-weight:300;line-height:1.5;">You can initiate direct communication with our team via WhatsApp to discuss your details instantly.</p>
                   <table align="center" cellpadding="0" cellspacing="0">
                     <tr>
                       <td>
-                        <a href="https://wa.me/919398501153" style="display:inline-block;background-color:#7C3AED;color:#ffffff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:-0.2px;">
-                          Continue via WhatsApp
+                        <a href="https://wa.me/919398501153" style="display:inline-block;background-color:#8B5CF6;color:#ffffff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:-0.2px;">
+                          Contact ARTIX on WhatsApp
                         </a>
                       </td>
                     </tr>
@@ -678,6 +753,16 @@ function getAcknowledgementEmailHtml(clientName: string): string {
             <p style="margin:0;font-size:10px;font-weight:600;color:#444444;text-transform:uppercase;letter-spacing:3px;">ARTIX MEDIA &copy; 2026</p>
             <p style="margin:4px 0 0 0;font-size:10px;color:#444444;letter-spacing:1px;font-style:italic;">Pacing is everything.</p>
           </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
+`;
+}>
         </tr>
 
       </table>

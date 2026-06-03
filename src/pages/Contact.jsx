@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Loader2, ChevronDown, Clock } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
@@ -247,77 +248,36 @@ const Contact = () => {
     setFieldErrors({});
     setErrorMessage('');
 
+    const nameVal = formData.name.trim();
+    const emailVal = formData.email.trim();
+    const phoneVal = formData.phone.trim();
+    const preferredContactVal = formData.preferredContact;
+    const projectTypeVal = formData.projectType;
+    const budgetVal = formData.budget;
+    const messageVal = formData.message.trim();
+    const currentToken = turnstileToken;
+
     try {
       const leadId = crypto.randomUUID();
 
-      // 1. Insert lead details into leads table
+      // 1. Insert lead details into leads table (highest priority)
       const { error: dbError } = await supabase
         .from('leads')
         .insert([{
           id: leadId,
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          phone: formData.phone.trim(),
-          preferred_contact: formData.preferredContact,
-          project_type: formData.projectType,
-          budget: formData.budget,
-          message: formData.message.trim(),
+          name: nameVal,
+          email: emailVal,
+          phone: phoneVal,
+          preferred_contact: preferredContactVal,
+          project_type: projectTypeVal,
+          budget: budgetVal,
+          message: messageVal,
           status: 'pending'
         }]);
 
       if (dbError) throw dbError;
 
-      // 2. Invoke the Edge Function via the production endpoint to process notifications and verify turnstile token
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://jhrmrtsenlrehzmblxrz.supabase.co";
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impocm1ydHNlbmxyZWh6bWJseHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODQyMjYsImV4cCI6MjA5NDY2MDIyNn0.ipEtzukIce2MX-Zj1M3q8iJJVFGV3ZUvSQXUgRd1gDw";
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/notify-lead`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${supabaseAnonKey}`
-        },
-        body: JSON.stringify({
-          type: "lead",
-          id: leadId,
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          phone: formData.phone.trim(),
-          preferred_contact: formData.preferredContact,
-          project_type: formData.projectType,
-          budget: formData.budget,
-          message: formData.message.trim(),
-          cf_turnstile_response: turnstileToken
-        })
-      });
-
-      // Temporary debug logging as requested (only in dev mode)
-      if (import.meta.env.DEV) {
-        console.log(turnstileToken);
-        console.log(formData);
-        console.log(response);
-
-        const responseTextClone = response.clone();
-        const responseJsonClone = response.clone();
-
-        try {
-          console.log(await responseTextClone.text());
-        } catch (err) {
-          console.log("Error logging response text:", err);
-        }
-
-        try {
-          console.log(await responseJsonClone.json());
-        } catch (err) {
-          console.log("Error logging response json:", err);
-        }
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Edge function returned status ${response.status}: ${errorText}`);
-      }
-
+      // Database insertion succeeded, safely transition to success state immediately
       localStorage.setItem('artix_last_submit', Date.now().toString());
       setFormStatus('success');
       setTurnstileToken('');
@@ -344,9 +304,43 @@ const Contact = () => {
         }
       }
 
+      // 2. Invoke the Edge Function via the production endpoint to process notifications and verify turnstile token
+      // Wrapped in its own try-catch so failures here do not affect database storage or success screen transition.
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://jhrmrtsenlrehzmblxrz.supabase.co";
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impocm1ydHNlbmxyZWh6bWJseHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODQyMjYsImV4cCI6MjA5NDY2MDIyNn0.ipEtzukIce2MX-Zj1M3q8iJJVFGV3ZUvSQXUgRd1gDw";
+
+        const response = await fetch(`${supabaseUrl}/functions/v1/notify-lead`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseAnonKey}`
+          },
+          body: JSON.stringify({
+            type: "lead",
+            id: leadId,
+            name: nameVal,
+            email: emailVal,
+            phone: phoneVal,
+            preferred_contact: preferredContactVal,
+            project_type: projectTypeVal,
+            budget: budgetVal,
+            message: messageVal,
+            cf_turnstile_response: currentToken
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Edge function notification failed (status ${response.status}): ${errorText}`);
+        }
+      } catch (efErr) {
+        console.error("Edge function invocation failed (notifications not sent):", efErr);
+      }
+
     } catch (err) {
       if (import.meta.env.DEV) {
-        console.error("Submission flow error:", err);
+        console.error("Submission database write error:", err);
       }
       setErrorMessage(err.message || String(err));
       setFormStatus('error');
@@ -679,38 +673,57 @@ const Contact = () => {
                   </motion.div>
 
                   <h2 className="text-3xl tablet:text-4xl font-heading font-bold text-white mb-4 tracking-tight">
-                    Inquiry Submitted
+                    Project Inquiry Received
                   </h2>
-                  <p className="text-secondaryText font-light text-base tablet:text-lg max-w-lg mx-auto mb-10 leading-relaxed">
-                    Thank you for sharing your project details. We limit our intake to ensure absolute focus on each narrative. We will review your vision and reply within 24–48 hours.
+                  <p className="text-secondaryText font-light text-base tablet:text-lg max-w-lg mx-auto mb-4 leading-relaxed">
+                    Thank you for reaching out to ARTIX MEDIA. Your inquiry has been successfully submitted and is now under review.
+                  </p>
+                  <p className="text-white/60 font-light text-sm tablet:text-base max-w-md mx-auto mb-10 leading-relaxed">
+                    We typically review project requests within 24 hours.
                   </p>
 
                   <div className="flex flex-col sm:flex-row items-center gap-4 justify-center w-full max-w-md">
+                    {/* Primary CTA */}
                     <a
-                      href="https://wa.me/919398501153"
+                      href="https://wa.me/919398501153?text=Hi%20ARTIX%20MEDIA%2C%0AI%20just%20submitted%20a%20project%20inquiry%20through%20your%20website%20and%20would%20like%20to%20discuss%20my%20requirements%20further."
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white transition-all duration-300 flex items-center justify-center gap-2 group"
+                      className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white transition-all duration-300 flex items-center justify-center gap-2 group bg-accent hover:bg-accent/90"
+                      style={{
+                        boxShadow: "0 4px 14px rgba(139, 92, 246, 0.3)"
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.boxShadow = '0 0 25px rgba(139, 92, 246, 0.4)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.boxShadow = '0 4px 14px rgba(139, 92, 246, 0.3)';
+                      }}
+                    >
+                      <span>Continue on WhatsApp</span>
+                      <svg className="w-4 h-4 text-white/80 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </a>
+
+                    {/* Secondary CTA */}
+                    <Link
+                      to="/"
+                      className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
                       style={{
                         background: 'rgba(255,255,255,0.03)',
                         border: '1px solid rgba(255,255,255,0.08)',
                       }}
                       onMouseEnter={e => {
-                        e.currentTarget.style.background = 'rgba(139,92,246,0.1)';
-                        e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)';
-                        e.currentTarget.style.boxShadow = '0 0 20px rgba(139, 92, 246, 0.15)';
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
                       }}
                       onMouseLeave={e => {
                         e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
                         e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
-                        e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
-                      <span>Continue via WhatsApp</span>
-                      <svg className="w-4 h-4 text-white/60 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                      </svg>
-                    </a>
+                      <span>Return to Home</span>
+                    </Link>
                   </div>
                 </motion.div>
               )}
