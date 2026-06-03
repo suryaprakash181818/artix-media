@@ -771,16 +771,6 @@ function getAcknowledgementEmailHtml(record: any): string {
 </body>
 </html>
 `;
-}>
-        </tr>
-
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
-</html>
-  `;
 }
 
 function getAcceptanceEmailHtml(clientName: string): string {
