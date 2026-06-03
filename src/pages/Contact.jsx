@@ -135,7 +135,16 @@ const Contact = () => {
   const [turnstileKey, setTurnstileKey] = useState(0);
   const [fieldErrors, setFieldErrors] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
+  const [submittedData, setSubmittedData] = useState(null);
   const turnstileRef = useRef(null);
+
+  const getWhatsAppUrl = () => {
+    const name = submittedData?.name || '';
+    const projectType = submittedData?.projectType || '';
+    const projectTypeLabel = projectTypeOptions.find(o => o.value === projectType)?.label || projectType || '';
+    const text = `Hi ARTIX MEDIA,\n\nI recently submitted a project inquiry through your website.\n\nName: ${name}\nProject Type: ${projectTypeLabel}\n\nI'd like to discuss the project requirements further.\n\nThank you.`;
+    return `https://wa.me/919398501153?text=${encodeURIComponent(text)}`;
+  };
 
   useEffect(() => {
     let unlocked = false;
@@ -278,6 +287,10 @@ const Contact = () => {
       if (dbError) throw dbError;
 
       // Database insertion succeeded, safely transition to success state immediately
+      setSubmittedData({
+        name: nameVal,
+        projectType: projectTypeVal
+      });
       localStorage.setItem('artix_last_submit', Date.now().toString());
       setFormStatus('success');
       setTurnstileToken('');
@@ -332,10 +345,10 @@ const Contact = () => {
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Edge function notification failed (status ${response.status}): ${errorText}`);
+          console.error(`[ARTIX DEV LOG] Edge function notification failed (status ${response.status}): ${errorText}`);
         }
       } catch (efErr) {
-        console.error("Edge function invocation failed (notifications not sent):", efErr);
+        console.error("[ARTIX DEV LOG] Edge function invocation failed (notifications not sent):", efErr);
       }
 
     } catch (err) {
@@ -678,14 +691,17 @@ const Contact = () => {
                   <p className="text-secondaryText font-light text-base tablet:text-lg max-w-lg mx-auto mb-4 leading-relaxed">
                     Thank you for reaching out to ARTIX MEDIA. Your inquiry has been successfully submitted and is now under review.
                   </p>
-                  <p className="text-white/60 font-light text-sm tablet:text-base max-w-md mx-auto mb-10 leading-relaxed">
+                  <p className="text-white/60 font-light text-sm tablet:text-base max-w-md mx-auto leading-relaxed">
                     We typically review project requests within 24 hours.
+                  </p>
+                  <p className="text-white/40 font-light text-xs tablet:text-sm max-w-md mx-auto mb-10 mt-2 leading-relaxed">
+                    For faster communication and requirement discussion, continue directly on WhatsApp.
                   </p>
 
                   <div className="flex flex-col sm:flex-row items-center gap-4 justify-center w-full max-w-md">
                     {/* Primary CTA */}
                     <a
-                      href="https://wa.me/919398501153?text=Hi%20ARTIX%20MEDIA%2C%0AI%20just%20submitted%20a%20project%20inquiry%20through%20your%20website%20and%20would%20like%20to%20discuss%20my%20requirements%20further."
+                      href={getWhatsAppUrl()}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white transition-all duration-300 flex items-center justify-center gap-2 group bg-accent hover:bg-accent/90"

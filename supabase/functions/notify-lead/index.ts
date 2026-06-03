@@ -418,13 +418,22 @@ serve(async (req: Request) => {
           const declineUrl = `${supabaseUrl}/functions/v1/notify-lead?action=decline&lead_id=${record.id || ''}&token=${statusSecret}`;
           const contactedUrl = `${supabaseUrl}/functions/v1/notify-lead?action=contacted&lead_id=${record.id || ''}&token=${statusSecret}`;
 
+          const isWhatsApp = record.preferred_contact === "WhatsApp";
+          const contactFieldName = isWhatsApp ? "🔥 Preferred Contact" : "⚡ Preferred Contact";
+          const contactFieldValue = isWhatsApp ? "WhatsApp" : (record.preferred_contact || "N/A");
+          const createdAt = record.created_at || new Date().toISOString();
+          const displayStatus = record.status || "pending";
+
           embedFields = [
             { name: "👤 Client Name", value: record.name || "N/A", inline: true },
             { name: "✉️ Email Address", value: record.email || "N/A", inline: true },
             { name: "📞 Phone Number", value: record.phone || "N/A", inline: true },
             { name: "🎬 Project Type", value: record.project_type || "N/A", inline: true },
             { name: "💰 Budget Range", value: record.budget || "N/A", inline: true },
-            { name: "⚡ Preferred Contact", value: record.preferred_contact || "N/A", inline: true },
+            { name: contactFieldName, value: contactFieldValue, inline: true },
+            { name: "🆔 Lead ID", value: record.id || "N/A", inline: false },
+            { name: "📅 Created At", value: createdAt, inline: true },
+            { name: "📊 Status", value: displayStatus, inline: true },
             { name: "💬 Message", value: record.message || "No message", inline: false }
           ];
 
