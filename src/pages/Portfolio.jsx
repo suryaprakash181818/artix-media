@@ -228,6 +228,7 @@ const Portfolio = () => {
     if (video) {
       video.pause();
       video.currentTime = 0;
+      video.muted = true;
     }
     setSelectedProject(null);
     setModalVideoPlaying(false);
@@ -262,25 +263,21 @@ const Portfolio = () => {
   const handleMuteToggle = async () => {
     const video = modalVideoRef.current;
     if (video) {
-      if (isMuted) {
-        // Unmute
-        video.muted = false;
+      const newMuted = !isMuted;
+      video.muted = newMuted;
+      if (!newMuted) {
         video.volume = 1.0;
-        console.log("Muted:", video.muted);
-        console.log("Volume:", video.volume);
+      }
+      setIsMuted(newMuted);
+
+      // Only trigger play if we are unmuting and the video is currently paused
+      if (!newMuted && video.paused) {
         try {
           await video.play();
-          setIsMuted(false);
           setModalVideoPlaying(true);
         } catch (error) {
           console.log("Audio unmute playback call was blocked:", error);
         }
-      } else {
-        // Mute
-        video.muted = true;
-        console.log("Muted:", video.muted);
-        console.log("Volume:", video.volume);
-        setIsMuted(true);
       }
     }
   };
@@ -576,7 +573,7 @@ const Portfolio = () => {
               <div className="ag-modal-video-side" onMouseEnter={handleModalMouseEnter} onMouseLeave={handleModalMouseLeave}>
                 <div ref={fullscreenContainerRef} className="video-player-wrapper relative w-full flex items-center justify-center bg-black overflow-hidden">
                   <video
-                    ref={modalVideoRef} src={selectedProject.video} muted={isMuted} playsInline preload="metadata"
+                    ref={modalVideoRef} src={selectedProject.video} defaultMuted={true} playsInline preload="metadata"
                     className="ag-modal-video"
                     style={isFullscreen ? { height: '100vh', maxHeight: 'none' } : {}}
                     onClick={handleVideoClick}

@@ -22,6 +22,7 @@ const budgetOptions = [
 
 const contactMethodOptions = [
   { value: "WhatsApp", label: "WhatsApp" },
+  { value: "Phone", label: "Phone Call" },
   { value: "Email", label: "Email" },
   { value: "Google Meet", label: "Google Meet" }
 ];
@@ -138,13 +139,7 @@ const Contact = () => {
   const [submittedData, setSubmittedData] = useState(null);
   const turnstileRef = useRef(null);
 
-  const getWhatsAppUrl = () => {
-    const name = submittedData?.name || '';
-    const projectType = submittedData?.projectType || '';
-    const projectTypeLabel = projectTypeOptions.find(o => o.value === projectType)?.label || projectType || '';
-    const text = `Hi ARTIX MEDIA,\n\nI recently submitted a project inquiry through your website.\n\nName: ${name}\nProject Type: ${projectTypeLabel}\n\nI'd like to discuss the project requirements further.\n\nThank you.`;
-    return `https://wa.me/919398501153?text=${encodeURIComponent(text)}`;
-  };
+
 
   useEffect(() => {
     let unlocked = false;
@@ -289,7 +284,8 @@ const Contact = () => {
       // Database insertion succeeded, safely transition to success state immediately
       setSubmittedData({
         name: nameVal,
-        projectType: projectTypeVal
+        projectType: projectTypeVal,
+        preferredContact: preferredContactVal
       });
       localStorage.setItem('artix_last_submit', Date.now().toString());
       setFormStatus('success');
@@ -695,51 +691,117 @@ const Contact = () => {
                     We typically review project requests within 24 hours.
                   </p>
                   <p className="text-white/40 font-light text-xs tablet:text-sm max-w-md mx-auto mb-10 mt-2 leading-relaxed">
-                    For faster communication and requirement discussion, continue directly on WhatsApp.
+                    {submittedData?.preferredContact === 'Phone' 
+                      ? "For faster communication and requirement discussion, call us directly or continue on WhatsApp."
+                      : "For faster communication and requirement discussion, continue directly on WhatsApp."
+                    }
                   </p>
 
-                  <div className="flex flex-col sm:flex-row items-center gap-4 justify-center w-full max-w-md">
-                    {/* Primary CTA */}
-                    <a
-                      href={getWhatsAppUrl()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white transition-all duration-300 flex items-center justify-center gap-2 group bg-accent hover:bg-accent/90"
-                      style={{
-                        boxShadow: "0 4px 14px rgba(139, 92, 246, 0.3)"
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.boxShadow = '0 0 25px rgba(139, 92, 246, 0.4)';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.boxShadow = '0 4px 14px rgba(139, 92, 246, 0.3)';
-                      }}
-                    >
-                      <span>Continue on WhatsApp</span>
-                      <svg className="w-4 h-4 text-white/80 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                      </svg>
-                    </a>
+                  <div className="flex flex-col sm:flex-row items-center gap-4 justify-center w-full max-w-lg">
+                    {submittedData?.preferredContact === 'Phone' ? (
+                      <>
+                        {/* Call CTA */}
+                        <a
+                          href="tel:+919398501153"
+                          className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white transition-all duration-300 flex items-center justify-center gap-2 group bg-accent hover:bg-accent/90"
+                          style={{
+                            boxShadow: "0 4px 14px rgba(139, 92, 246, 0.3)"
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.boxShadow = '0 0 25px rgba(139, 92, 246, 0.4)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.boxShadow = '0 4px 14px rgba(139, 92, 246, 0.3)';
+                          }}
+                        >
+                          <span>Call ARTIX MEDIA</span>
+                        </a>
 
-                    {/* Secondary CTA */}
-                    <Link
-                      to="/"
-                      className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
-                      style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
-                      }}
-                    >
-                      <span>Return to Home</span>
-                    </Link>
+                        {/* WhatsApp CTA (Secondary) */}
+                        <a
+                          href="https://wa.me/919398501153?text=Hi%20ARTIX%20MEDIA%2C%20I%20just%20submitted%20a%20project%20inquiry%20through%20your%20website%20and%20would%20like%20to%20discuss%20my%20requirements."
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
+                          style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                          }}
+                        >
+                          <span>Continue on WhatsApp</span>
+                        </a>
+
+                        {/* Return to Home CTA */}
+                        <Link
+                          to="/"
+                          className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white/60 hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
+                          style={{
+                            background: 'transparent',
+                            border: '1px solid transparent',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          <span>Return to Home</span>
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        {/* WhatsApp CTA (Primary) */}
+                        <a
+                          href="https://wa.me/919398501153?text=Hi%20ARTIX%20MEDIA%2C%20I%20just%20submitted%20a%20project%20inquiry%20through%20your%20website%20and%20would%20like%20to%20discuss%20my%20requirements."
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white transition-all duration-300 flex items-center justify-center gap-2 group bg-accent hover:bg-accent/90"
+                          style={{
+                            boxShadow: "0 4px 14px rgba(139, 92, 246, 0.3)"
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.boxShadow = '0 0 25px rgba(139, 92, 246, 0.4)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.boxShadow = '0 4px 14px rgba(139, 92, 246, 0.3)';
+                          }}
+                        >
+                          <span>Continue on WhatsApp</span>
+                          <svg className="w-4 h-4 text-white/80 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                          </svg>
+                        </a>
+
+                        {/* Return to Home CTA */}
+                        <Link
+                          to="/"
+                          className="w-full sm:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
+                          style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                          }}
+                        >
+                          <span>Return to Home</span>
+                        </Link>
+                      </>
+                    )}
                   </div>
                 </motion.div>
               )}

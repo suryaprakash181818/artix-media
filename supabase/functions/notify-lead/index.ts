@@ -39,6 +39,32 @@ function sanitize(str: string): string {
     .slice(0, 2000)
 }
 
+function getDisplayStatus(status: string): string {
+  switch (status) {
+    case 'contacted': return '🔵 Contacted';
+    case 'accepted':  return '🟢 Accepted';
+    case 'declined':  return '🔴 Declined';
+    case 'pending':
+    default:          return '🟡 Pending Review';
+  }
+}
+
+function formatPhoneForWhatsApp(phone: string): string {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+  return digits;
+}
+
+function formatPhoneForTel(phone: string): string {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  }
+  return `+${digits}`;
+}
+
 serve(async (req: Request) => {
   // CORS Preflight
   if (req.method === "OPTIONS") {
@@ -419,28 +445,37 @@ serve(async (req: Request) => {
           const contactedUrl = `${supabaseUrl}/functions/v1/notify-lead?action=contacted&lead_id=${record.id || ''}&token=${statusSecret}`;
 
           const isWhatsApp = record.preferred_contact === "WhatsApp";
-          const contactFieldName = isWhatsApp ? "🔥 Preferred Contact" : "⚡ Preferred Contact";
-          const contactFieldValue = isWhatsApp ? "WhatsApp" : (record.preferred_contact || "N/A");
+          const isPhone = record.preferred_contact === "Phone";
+          const contactFieldName = (isWhatsApp || isPhone) ? "🔥 Preferred Contact" : "⚡ Preferred Contact";
+          const contactFieldValue = record.preferred_contact || "N/A";
           const createdAt = record.created_at || new Date().toISOString();
           const displayStatus = record.status || "pending";
 
+          const waPhone = formatPhoneForWhatsApp(record.phone || "");
+          const telPhone = formatPhoneForTel(record.phone || "");
+
           embedFields = [
             { name: "👤 Client Name", value: record.name || "N/A", inline: true },
-            { name: "✉️ Email Address", value: record.email || "N/A", inline: true },
             { name: "📞 Phone Number", value: record.phone || "N/A", inline: true },
+            { name: contactFieldName, value: contactFieldValue, inline: true },
             { name: "🎬 Project Type", value: record.project_type || "N/A", inline: true },
             { name: "💰 Budget Range", value: record.budget || "N/A", inline: true },
-            { name: contactFieldName, value: contactFieldValue, inline: true },
+            { name: "💬 Message", value: record.message || "No message", inline: false },
+            { name: "✉️ Email Address", value: record.email || "N/A", inline: true },
+            { name: "📊 Status", value: getDisplayStatus(displayStatus), inline: true },
             { name: "🆔 Lead ID", value: record.id || "N/A", inline: false },
             { name: "📅 Created At", value: createdAt, inline: true },
-            { name: "📊 Status", value: displayStatus, inline: true },
-            { name: "💬 Message", value: record.message || "No message", inline: false }
+            {
+              name: "📞 Direct Contact Actions",
+              value: `[💬 Open WhatsApp](https://wa.me/${waPhone})  |  [📞 Call Client](tel:${telPhone})`,
+              inline: false
+            }
           ];
 
           if (record.id) {
             embedFields.push({
               name: "🛠️ Quick Actions",
-              value: `[🟢 Accept Lead](${acceptUrl})  |  [🔴 Decline Lead](${declineUrl})  |  [🟡 Mark Contacted](${contactedUrl})`,
+              value: `[🟢 Accept Lead](${acceptUrl})  |  [🔴 Decline Lead](${declineUrl})  |  [🔵 Mark Contacted](${contactedUrl})`,
               inline: false
             });
           }
@@ -458,6 +493,7 @@ serve(async (req: Request) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            username: "ARTIX Concierge",
             embeds: [{
               title: embedTitle,
               color: 0x8B5CF6,
@@ -682,6 +718,16 @@ function getAcknowledgementEmailHtml(record: any): string {
                 <td style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
                   <table width="100%" cellpadding="0" cellspacing="0">
                     <tr>
+                      <td width="40%" style="font-size:12px;font-weight:600;color:#555555;text-transform:uppercase;letter-spacing:1.5px;">Phone Number</td>
+                      <td width="60%" style="font-size:14px;color:#ffffff;font-weight:500;">${record.phone || 'N/A'}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
                       <td width="40%" style="font-size:12px;font-weight:600;color:#555555;text-transform:uppercase;letter-spacing:1.5px;">Project Type</td>
                       <td width="60%" style="font-size:14px;color:#ffffff;font-weight:500;">${projectType}</td>
                     </tr>
@@ -719,15 +765,19 @@ function getAcknowledgementEmailHtml(record: any): string {
             <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#999999;line-height:1.6;font-weight:300;">
               <tr>
                 <td valign="top" style="padding-bottom:12px;padding-right:12px;color:#8B5CF6;font-weight:bold;">01.</td>
-                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">Review inquiry:</strong> We check your project details and requirements against our current capacity and creative alignment.</td>
+                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">Inquiry Received:</strong> Your project details have been successfully logged in our pipeline.</td>
               </tr>
               <tr>
                 <td valign="top" style="padding-bottom:12px;padding-right:12px;color:#8B5CF6;font-weight:bold;">02.</td>
-                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">Evaluate requirements:</strong> Our team reviews your specific answers, message content, and reference styles.</td>
+                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">Review In Progress:</strong> Our creative directors are checking project feasibility and timeline.</td>
               </tr>
               <tr>
                 <td valign="top" style="padding-bottom:12px;padding-right:12px;color:#8B5CF6;font-weight:bold;">03.</td>
-                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">Contact within 24 hours:</strong> We will reach out to you via your preferred contact method to discuss details.</td>
+                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">Requirement Evaluation:</strong> We evaluate the creative concept and assets requested.</td>
+              </tr>
+              <tr>
+                <td valign="top" style="padding-bottom:12px;padding-right:12px;color:#8B5CF6;font-weight:bold;">04.</td>
+                <td style="padding-bottom:12px;"><strong style="color:#ffffff;">ARTIX Contact Within 24 Hours:</strong> We will reach out via your preferred method to align on scope.</td>
               </tr>
             </table>
           </td>
@@ -745,7 +795,7 @@ function getAcknowledgementEmailHtml(record: any): string {
                     <tr>
                       <td>
                         <a href="https://wa.me/919398501153" style="display:inline-block;background-color:#8B5CF6;color:#ffffff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:-0.2px;">
-                          Contact ARTIX on WhatsApp
+                          Continue Conversation on WhatsApp
                         </a>
                       </td>
                     </tr>
